@@ -108,7 +108,8 @@ type valueType = address | email | phone | paymentType
 + open(id): HTMLElement - открывает (и закрывает старое если открыто) модальное окно и возвращает HTML элемент
 + close(id): void - закрывает модальное окно
 
-![image](https://github.com/Basarus/web-larek-frontend/assets/74671944/e2861e26-3c5f-45f6-9171-2adf07e7cd75)
+![image](https://github.com/Basarus/web-larek-frontend/assets/74671944/8fb3c1fa-f125-4d1c-9705-d7970a5b84ab)
+
 
 
 
