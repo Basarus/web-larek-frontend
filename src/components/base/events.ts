@@ -22,7 +22,7 @@ export interface IEvents {
  * В расширенных вариантах есть возможность подписаться на все события
  * или слушать события по шаблону например
  */
-export class EventEmitter implements IEvents {
+class EventEmitter implements IEvents {
 	_events: Map<EventName, Set<Subscriber>>;
 
 	constructor() {
@@ -91,3 +91,5 @@ export class EventEmitter implements IEvents {
 		};
 	}
 }
+
+export default new EventEmitter();
