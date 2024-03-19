@@ -43,20 +43,34 @@ yarn build
 
 !Базовый код
 
-1. Класс Product
+1. Класс Component<T>
 
-Основной класс реализует паттерн «Фабрика» с экземплярами которого взаимодействует пользователь.
-Реализует методы для взаимодействия с конкретным товаром.
+Находится в основе практически всех частей проекта, реализует методы для управления компонентами (изменения текста/изображения, переключение класса и рендер).
+Класс является дженериком и в переменной Т принимает тип данных компонентов.
 
-Конструктор принимает такие аргументы:
-1. id: string - уникальный индификатор товара
-2. title: string - название товара
-3. image: string - ссылка на изображение товара
-4. price: number - цена товара
-5. description: string - описание товара
-6. category: string - категория товара
+Конструктор принимает элемент с которым будет происходить взаимодействие.
+Класс имеет такие методы: 
+- setText, setImage, toggleClass для изменения состояния элементов.
+- render для заполнения свойств элемента и получения его в формате HTMLElement.
 
-2. Класс EventEmitter
+2. Класс Form<T>
+
+Для управления формами проекта, реализует методы для отслеживания изменения состояний свойств, рендера и отправка формы.
+Конструктор принимает элемент с которым будет происходить взаимодействие и функцию вызывающаяся для события submit.
+
+Класс имеет такие методы:
+- onInputChange для отслеживания изменения свойств формы.
+- render для заполнения свойств элемента и получения его в формате HTMLElement.
+
+3. Класс Model<T>
+
+Базовая модель для того что бы ее можно было отличить от простых объектов с данными, реализует методы отслеживания изменений компонентов.
+Конструктор принимает компонент для отслеживания.
+
+Класс имеет такие методы:
+- emitChanges сообщает об изменение модели
+
+4. Класс EventEmitter
  
 Реализует паттерн «Наблюдатель» и позволяет подписываться на события и уведомлять подписчиков
 о наступлении события.
@@ -71,57 +85,151 @@ yarn build
 
 !Компоненты и модели данных (бизнес-логика)
 
-1. Класс Cart
-Реализует паттерн «Реестр».
-Содержит состояние корзины пользователя и управляет ее состоянием. "Записывает" товары в корзину, удаляет и создает заказ из выбранных пользователем товаров.
-Ключевой метод createOrder() - "собирает" и создает заказ пользователя
+1. Класс AppState
+
+Осуществляет управление состоянием всего приложения (корзина, заказ, главная страница).
+Ключевые методы: 
+- addProductInBasket добавить товар в корзину.
+- removeProductFromBasket удалить товар из корзины.
+- getBasket получить список товаров.
+- setPreview установить превью товара.
+- setCatalog установить товары в каталог.
+- getTotalPrice получить стоимость всех товаров из корзины.
+- clearBasket очистить корзину.
+- setOrderField установить значения поля заказа.
+- validateOrder валидация полей заказа.
+- clearOrder очистить поля заказа.
 
 !Компоненты представления
 
-1. Класс StoreUI
-Реализует паттерн «Единая точка входа»
-Выводит в контейнере список товаров.
+1. Класс BasketUI
+Выводит в контейнере корзину с товарами.
 
 2. Класс ModalUI
-Реализует паттерн «Одиночка»
-Отображает модальные окна и закрывает модальные окна.
+Отображает и закрывает модальные окна.
+
+3. Класс PageUI
+Отображает в контейнере главную странцу сайта.
+
+4. Класс ProductUI
+Отображает в контейнере данные о товаре.
+
+4.1 Класс BasketItemUI
+Расширяет класс ProductUI для отображения товаров в корзине.
+
+4.2 Класс CatalogItemUI
+Расширяет класс ProductUI для отображения товаров на главной странице.
+
+5. OrderUI
+Отображет в контейнере страницу оформления заказа.
+
+6. SuccessUI 
+Отображает в контейнере результат оформления заказа.
 
 !Ключевые типы данных
 
-interface FormElements extends HTMLFormElement {
-	address: HTMLInputElement;
-	phone: HTMLInputElement;
-	email: HTMLInputElement;
+interface IBasketView {
+	items: HTMLElement[];
+	total: number;
+}
+
+interface IProductActions {
+	onClick: (event: MouseEvent) => void;
+}
+
+interface IProductUI<T> {
+    index: number;
+	title: string;
+	description: string;
+	price: string;
+	image: string;
+	category: string;
+	status: T;
+}
+
+type CatalogChangeEvent = {
+	catalog: IProduct[];
+};
+
+interface IFormState {
+	valid: boolean;
+	errors: string[];
+}
+
+interface IModalData {
+    content: HTMLElement;
+}
+
+interface IPage {
+    counter: number;
+    catalog: HTMLElement[];
+    locked: boolean;
+}
+
+interface ISuccess {
+	title: string;
+	description: string;
+}
+
+interface ISuccessActions {
+	onClick: () => void;
 }
 
 interface IProduct {
 	id: string;
 	title: string;
-	image: string;
 	price: number;
 	description: string;
+	image: string;
 	category: string;
+	status: boolean;
 }
 
-type TypePayment = 'online' | 'card';
-
-interface Order {
- payment: TypePayment;
- email: string;
- phone: string;
- address: string;
- total: number;
- items: Product['id'][];
+interface IOrderForm {
+    email: string;
+    phone: string;
+	address: string;
+	payment: string;
 }
 
-enum Events {
- ADD_PRODUCT: 'cart:add-product',
- REMOVE_PRODUCT: 'cart:remove-product',
- CREATE_ORDER: 'cart:create_order',
- OPEN_PREVIEW: 'product:open-preview'
+interface IOrder extends IOrderForm {
+    items: string[]
 }
 
-![image](https://github.com/Basarus/web-larek-frontend/assets/74671944/14b1d3f9-c578-4def-886a-37065707132c)
+type FormErrors = Partial<Record<keyof IOrder, string>>;
+
+interface IOrderResult {
+    id: string[];
+	total: number;
+	error?: string;
+}
+
+interface IWebLakerApi {
+	getProducts: () => Promise<Products>;
+	getProduct: (id: string) => Promise<IProduct>;
+	createOrder: (order: IOrder) => Promise<IOrderResult>;
+}
+
+!Ивенты
+
+const Events = {
+	['ITEMS_CHANGED']: 'items:changed',
+	['ADD_PRODUCT']: 'cart:add-product',
+	['REMOVE_PRODUCT']: 'cart:remove-product',
+	['CREATE_ORDER']: 'cart:create_order',
+	['OPEN_PREVIEW']: 'product:open-preview',
+	['CHANGED_PREVIEW']: 'product:changed-preview',
+	['BASKET_OPEN']: 'cart:open',
+	['FORM_ERRORS_CHANGE']: 'formErrors:changed',
+	['ORDER_OPEN'] : 'order:open',
+	['SET_PAYMENT_TYPE'] : 'order:setPaymentType',
+	['MODAL_OPEN'] : 'modal:open',
+	['MODAL_CLOSE'] : 'modal:close',
+};
+
+![image](https://github.com/Basarus/web-larek-frontend/assets/74671944/43e14269-26ea-47d9-bbff-3c0653044824)
+
+
 
 
 
