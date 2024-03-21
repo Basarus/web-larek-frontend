@@ -6,7 +6,7 @@ interface IProductActions {
 }
 
 export interface IProductUI<T> {
-    index: number;
+	index: number;
 	title: string;
 	description: string;
 	price: string;
@@ -14,6 +14,14 @@ export interface IProductUI<T> {
 	category: string;
 	status: T;
 }
+
+const ProductCategory = {
+	['софт-скил']: 'soft',
+	['другое']: 'other',
+	['кнопка']: 'button',
+	['хард-скил']: 'hard',
+	['дополнительное']: 'additional',
+};
 
 export class ProductUI<T> extends Component<IProductUI<T>> {
 	protected _title: HTMLElement;
@@ -60,20 +68,24 @@ export class ProductUI<T> extends Component<IProductUI<T>> {
 		return this._title.textContent || '';
 	}
 
-	set category(value: string) {
-		this.setText(this._category, value);
+	set category(value: keyof typeof ProductCategory) {
+		if (this._category) {
+			this.setText(this._category, value);
+			const categoryStyle = `card__category_${ProductCategory[value]}`;
+			this._category.classList.add(categoryStyle);
+		}
 	}
 
-	get category(): string {
-		return this._category.textContent || '';
+	get category(): keyof typeof ProductCategory {
+		return this._category.textContent as keyof typeof ProductCategory;
 	}
 
-	set price(value: string) {
-		this.setText(this._price, value + ' синапсов');
+	set price(value: string | null) {
+		this.setText(this._price, value ?? '');
 	}
 
 	get price(): string {
-		return this._price.textContent || '0 синапсов';
+		return this._price.textContent || null;
 	}
 
 	set image(value: string) {
@@ -100,16 +112,21 @@ export type CatalogItemStatus = {
 };
 
 export class CatalogItem extends ProductUI<CatalogItemStatus> {
-	protected _status: HTMLElement;
-
 	constructor(container: HTMLElement, actions?: IProductActions) {
 		super('card', container, actions);
 		this._image = ensureElement<HTMLImageElement>(`.card__image`, container);
 	}
 
 	set status({ status }: CatalogItemStatus) {
-		this.setText(this._button, status ? 'Уже в корзине' : 'В корзину');
-		this._button.disabled = status
+		if (this._button) {
+			if (this.price === null) {
+				this.setText(this._button, 'Недоступно');
+				this._button.disabled = true;
+			} else {
+				this.setText(this._button, status ? 'Уже в корзине' : 'В корзину');
+				this._button.disabled = status;
+			}
+		}
 	}
 }
 

@@ -2,13 +2,13 @@ import './scss/styles.scss';
 import WebLarekApi from './components/store/WebLarekApi';
 import { API_URL, CDN_URL } from './utils/constants';
 
-import { IOrderForm } from './types';
+import { Events, IOrder } from './types';
 
 import { cloneTemplate, createElement, ensureElement } from './utils/utils';
 import {
 	AppState,
 	CatalogChangeEvent,
-	ProductItem,
+	IProduct,
 } from './components/store/AppData';
 import { Page } from './components/store/ui/Page';
 import { Modal } from './components/store/ui/Modal';
@@ -17,7 +17,7 @@ import { Order } from './components/store/ui/Order';
 
 const api = new WebLarekApi(API_URL);
 import EventEmitter from './components/base/events';
-import { BasketItem, CatalogItem } from './components/store/ui/ProductUI';
+import { BasketItem, CatalogItem } from './components/store/ui/Product';
 import { Success } from './components/store/ui/Success';
 
 // Для отслеживания логов
@@ -56,17 +56,17 @@ let order: Order = null;
 /**
  * Изменились элементы каталога
  */
-EventEmitter.on<CatalogChangeEvent>('items:changed', () => {
+EventEmitter.on<CatalogChangeEvent>(Events.ITEMS_CHANGED, () => {
 	page.catalog = appData.catalog.map((item) => {
 		const product = new CatalogItem(cloneTemplate(cardCatalogTemplate), {
-			onClick: () => EventEmitter.emit('product:select', item),
+			onClick: () => EventEmitter.emit(Events.OPEN_PREVIEW, item),
 		});
 
 		return product.render({
 			title: item.title,
 			image: CDN_URL + item.image,
 			description: item.description,
-			price: item.price?.toString() || '0',
+			price: item.price !== null ? item.price.toString() + ' синапсов' : '',
 			category: item.category,
 		});
 	});
@@ -75,59 +75,43 @@ EventEmitter.on<CatalogChangeEvent>('items:changed', () => {
 });
 
 // Открыть превью товара
-EventEmitter.on('product:select', (item: ProductItem) => {
+EventEmitter.on(Events.OPEN_PREVIEW, (item: IProduct) => {
 	appData.setPreview(item);
 });
 
 // Изменен открытый выбранный товар
-EventEmitter.on('preview:changed', (item: ProductItem) => {
-	const showItem = (item: ProductItem) => {
-		const card = new CatalogItem(cloneTemplate(cardPreviewTemplate), {
-			onClick: () => EventEmitter.emit('product:addCard', item),
-		});
+EventEmitter.on(Events.CHANGED_PREVIEW, (item: IProduct) => {
+	const card = new CatalogItem(cloneTemplate(cardPreviewTemplate), {
+		onClick: () => EventEmitter.emit(Events.ADD_PRODUCT, item),
+	});
 
-		modal.render({
-			content: card.render({
-				title: item.title,
-				image: CDN_URL + item.image,
-				description: item.description,
-				price: item.price?.toString() ?? '0 синапсов',
-				status: {
-					status: appData.basket.includes(item.id),
-				},
-			}),
-		});
-	};
-
-	if (item) {
-		api
-			.getProduct(item.id)
-			.then((result) => {
-				item.description = result.description;
-				item.category = result.category;
-				showItem(item);
-			})
-			.catch((err) => {
-				console.error(err);
-			});
-	} else {
-		modal.close();
-	}
+	modal.render({
+		content: card.render({
+			title: item.title,
+			image: CDN_URL + item.image,
+			description: item.description,
+			category: item.category,
+			price: item.price !== null ? item.price?.toString() + ' синапсов' : '',
+			status: {
+				status: item.price === null || appData.basket.includes(item.id),
+			},
+		}),
+	});
 });
 
 //!Корзина
 
 // Добавить элемент в корзину
-EventEmitter.on('product:addCard', (item: ProductItem) => {
-	appData.addProductToBasket(item);
+EventEmitter.on(Events.ADD_PRODUCT, (item: IProduct) => {
+	appData.addProductInBasket(item);
 	modal.close();
 });
 
 // Открыть корзину
-EventEmitter.on('basket:open', () => {
+EventEmitter.on(Events.BASKET_OPEN, () => {
 	const items = appData.getBusket().map((item, index) => {
 		const product = new BasketItem(cloneTemplate(cardBasketTemplate), {
-			onClick: () => EventEmitter.emit('product:removeBusket', item),
+			onClick: () => EventEmitter.emit(Events.REMOVE_PRODUCT, item),
 		});
 		return product.render({
 			index: index + 1,
@@ -141,7 +125,7 @@ EventEmitter.on('basket:open', () => {
 		content: createElement<HTMLElement>('div', {}, [
 			basket.render({
 				items,
-				total: appData.getTotal(),
+				total: appData.getTotalPrice(),
 			}),
 		]),
 	});
@@ -149,7 +133,7 @@ EventEmitter.on('basket:open', () => {
 
 // Удаляем товар из корзины
 
-EventEmitter.on('product:removeBusket', (item: ProductItem) => {
+EventEmitter.on(Events.REMOVE_PRODUCT, (item: IProduct) => {
 	appData.removeProductFromBasket(item);
 });
 
@@ -162,13 +146,13 @@ EventEmitter.on(/(^order|^contacts):submit/, () => {
 		.createOrder({
 			...appData.order,
 			items: items.map((i) => i.id),
-			total: appData.getTotal(),
+			total: appData.getTotalPrice(),
 		})
 		.then((result) => {
 			const success = new Success(cloneTemplate(successOrderTemplate), {
 				onClick: () => {
 					modal.close();
-					appData.clearBasket();
+					EventEmitter.emit(Events.CLEAR_ORDER);
 				},
 			});
 
@@ -183,11 +167,21 @@ EventEmitter.on(/(^order|^contacts):submit/, () => {
 		})
 		.catch((err) => {
 			console.error(err);
+		})
+		.finally(() => {
+			EventEmitter.emit(Events.CLEAR_ORDER);
 		});
 });
 
+// Очистить заказ и корзину
+
+EventEmitter.on(Events.CLEAR_ORDER, () => {
+	appData.clearBasket();
+	appData.clearOrder();
+});
+
 // Изменилось состояние валидации формы
-EventEmitter.on('formErrors:change', (errors: Partial<IOrderForm>) => {
+EventEmitter.on(Events.FORM_ERRORS_CHANGE, (errors: Partial<IOrder>) => {
 	const { email, phone, address, payment } = errors;
 	order.valid = !address && !email && !phone && !payment;
 	order.errors = Object.values(errors)
@@ -198,22 +192,20 @@ EventEmitter.on('formErrors:change', (errors: Partial<IOrderForm>) => {
 // Изменилось одно из полей
 EventEmitter.on(
 	/(^order|^contacts)\..*:change/,
-	(data: { field: keyof IOrderForm; value: string }) => {
+	(data: { field: keyof Omit<IOrder, 'items' | 'total'>; value: string }) => {
 		appData.setOrderField(data.field, data.value);
 	}
 );
 
 // Открыть форму заказа
-EventEmitter.on('order:open', () => {
+EventEmitter.on(Events.ORDER_OPEN, () => {
 	if (order) order = null;
 	const step = !appData.order.address && !appData.order.payment ? 0 : 1;
 	order = new Order(
 		cloneTemplate(!step ? orderTemplate : contactsTemplate),
 		EventEmitter
 	);
-	const data = !step
-		? { address: ''}
-		: { phone: '', email: '' };
+	const data = !step ? { address: '' } : { phone: '', email: '' };
 	modal.render({
 		content: order.render({
 			...data,
@@ -223,18 +215,19 @@ EventEmitter.on('order:open', () => {
 	});
 });
 
-EventEmitter.on('order:setPaymentType', (data: { paymentType: string }) => {
+EventEmitter.on(Events.SET_PAYMENT_TYPE, (data: { paymentType: string }) => {
 	appData.setOrderField('payment', data.paymentType);
 });
 
 // Блокируем прокрутку страницы если открыта модалка
-EventEmitter.on('modal:open', () => {
+EventEmitter.on(Events.MODAL_OPEN, () => {
 	page.locked = true;
 });
 
 // ... и разблокируем
-EventEmitter.on('modal:close', () => {
+EventEmitter.on(Events.MODAL_CLOSE, () => {
 	page.locked = false;
+	appData.clearOrder();
 });
 
 // Получаем лоты с сервера

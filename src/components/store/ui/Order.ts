@@ -1,8 +1,7 @@
 import { Form } from '../ui/Form';
-import { IOrderForm } from '../../../types';
+import { Events, IOrder } from '../../../types';
 import { IEvents } from '../../base/events';
-
-export class Order extends Form<IOrderForm> {
+export class Order extends Form<IOrder> {
 	protected _altButtons;
 
 	constructor(container: HTMLFormElement, events: IEvents) {
@@ -41,6 +40,6 @@ export class Order extends Form<IOrderForm> {
 	}
 
 	set payment(value: string) {
-		this.events.emit('order:setPaymentType', {paymentType: value})
+		this.events.emit(Events.SET_PAYMENT_TYPE, { paymentType: value });
 	}
 }
